@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { AbsenceRecord } from '../types';
-import { exportToExcel } from '../services/excelService';
-import { getAttendanceInsights } from '../services/geminiService';
+import { AbsenceRecord } from '../types.ts';
+import { exportToExcel } from '../services/excelService.ts';
+import { getAttendanceInsights } from '../services/geminiService.ts';
 import { 
   Download, 
   Search, 
@@ -17,7 +16,8 @@ import {
   Trash2,
   RefreshCw,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Lightbulb
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -34,7 +34,7 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
   const [lastRecordCount, setLastRecordCount] = useState(records.length);
   const [showUpdateToast, setShowUpdateToast] = useState(false);
 
-  // Calculate cumulative absences for each student to determine color coding
+  // Calculate cumulative absences for each student
   const studentStats = useMemo(() => {
     const stats: Record<string, number> = {};
     records.forEach(r => {
@@ -86,8 +86,17 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
     };
   };
 
+  const handleAnalyze = async () => {
+    if (records.length === 0) return;
+    setIsAnalyzing(true);
+    const result = await getAttendanceInsights(records);
+    setInsights(result.insights || []);
+    setIsAnalyzing(false);
+  };
+
   useEffect(() => {
-    if (records.length > 0 && Math.abs(records.length - lastRecordCount) > 2) {
+    // Automatically analyze if records change significantly
+    if (records.length > 0 && Math.abs(records.length - lastRecordCount) > 5) {
       handleAnalyze();
     } else if (records.length === 0) {
       setInsights([]);
@@ -101,14 +110,6 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
     }
     setLastRecordCount(records.length);
   }, [records.length]);
-
-  const handleAnalyze = async () => {
-    if (records.length === 0) return;
-    setIsAnalyzing(true);
-    const result = await getAttendanceInsights(records);
-    setInsights(result.insights || []);
-    setIsAnalyzing(false);
-  };
 
   const filteredRecords = useMemo(() => {
     return records.filter(r => 
@@ -155,17 +156,27 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
   return (
     <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500" dir="rtl">
       
-      {/* Real-time Status */}
+      {/* Real-time Status & AI Insights Trigger */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-blue-700 text-white rounded-2xl shadow-xl border-b-4 border-blue-900">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between p-4 bg-white text-slate-800 rounded-2xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-2.5 h-2.5 bg-green-400 rounded-full animate-ping absolute" />
-              <div className="w-2.5 h-2.5 bg-green-400 rounded-full relative shadow-[0_0_12px_rgba(74,222,128,1)]" />
+              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping absolute" />
+              <div className="w-2.5 h-2.5 bg-green-500 rounded-full relative shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
             </div>
-            <span className="text-sm font-black uppercase tracking-widest">المزامنة السحابية فعالة</span>
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500">مزامنة حية</span>
           </div>
-          {/* Refresh button removed per user request */}
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleAnalyze}
+              disabled={isAnalyzing || records.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black border border-indigo-100 hover:bg-indigo-100 transition-all disabled:opacity-50"
+            >
+              {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              تحليل ذكي للبيانات
+            </button>
+          </div>
         </div>
 
         {showUpdateToast && (
@@ -178,6 +189,30 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
           </div>
         )}
       </div>
+
+      {/* AI Insights Card */}
+      {insights.length > 0 && (
+        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-8 rounded-3xl text-white shadow-2xl space-y-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+            <Lightbulb className="w-48 h-48" />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-white/20 rounded-xl">
+                <Sparkles className="w-5 h-5 text-indigo-100" />
+              </div>
+              <h3 className="text-xl font-black">تحليلات الأداء والغياب (Gemini AI)</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {insights.map((insight, i) => (
+                <div key={i} className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/10 hover:bg-white/15 transition-all">
+                  <p className="text-sm font-bold leading-relaxed">{insight}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Threshold Legend */}
       <div className="flex flex-wrap gap-4 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -211,9 +246,9 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <button onClick={handleExportText} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-black"><FileText className="w-4 h-4" /> نص</button>
-            <button onClick={handleExportExcel} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black"><Download className="w-4 h-4" /> إكسل</button>
-            <button onClick={onClearAll} className="flex-1 md:flex-none p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all border border-red-100"><Trash2 className="w-5 h-5" /></button>
+            <button onClick={handleExportText} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-black hover:bg-slate-700 transition-all"><FileText className="w-4 h-4" /> نص</button>
+            <button onClick={handleExportExcel} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-all"><Download className="w-4 h-4" /> إكسل</button>
+            <button onClick={onClearAll} className="flex-1 md:flex-none p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all border border-red-100" title="مسح الكل"><Trash2 className="w-5 h-5" /></button>
           </div>
         </div>
 
@@ -259,16 +294,23 @@ const SupervisorView: React.FC<SupervisorViewProps> = ({ records, onDeleteRecord
                       {record.messageToSupervisor && (
                         <div className="relative group/tooltip">
                           <MessageCircle className="w-5 h-5 text-blue-300 group-hover:text-blue-600 cursor-help" />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/tooltip:opacity-100 z-50 pointer-events-none shadow-2xl leading-relaxed">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/tooltip:opacity-100 z-50 pointer-events-none shadow-2xl leading-relaxed transition-opacity">
                             {record.messageToSupervisor}
                           </div>
                         </div>
                       )}
-                      <button onClick={() => onDeleteRecord(record.id)} className="p-1.5 text-slate-300 hover:text-red-500"><X className="w-4 h-4" /></button>
+                      <button onClick={() => onDeleteRecord(record.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
                     </td>
                   </tr>
                 );
               })}
+              {filteredRecords.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-20 text-center text-slate-400 font-bold italic">
+                    لا توجد سجلات مطابقة للبحث.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

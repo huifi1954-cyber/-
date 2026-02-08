@@ -1,9 +1,8 @@
-
 import React, { useState, useRef } from 'react';
-import { AbsenceRecord, User } from '../types';
-import { generateProfessionalMessage } from '../services/geminiService';
-import { parseExcelForStudents } from '../services/excelService';
-import { Send, Sparkles, CheckCircle2, Info, UserPlus, X, FileUp, ListChecks, Trash2, Loader2 } from 'lucide-react';
+import { AbsenceRecord, User } from '../types.ts';
+import { generateProfessionalMessage } from '../services/geminiService.ts';
+import { parseExcelForStudents } from '../services/excelService.ts';
+import { Send, Sparkles, CheckCircle2, Info, UserPlus, X, FileUp, ListChecks, Trash2, Loader2, Mic, MicOff } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TeacherViewProps {
@@ -22,11 +21,36 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
   const [aiMessage, setAiMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddStudent = (e: React.FormEvent) => {
-    e.preventDefault();
+  const startVoiceRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("المتصفح الخاص بك لا يدعم ميزة التعرف على الصوت. يرجى استخدام Chrome أو Safari.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ar-SA';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setTypedName(transcript);
+    };
+
+    recognition.start();
+  };
+
+  const handleAddStudent = (e?: React.FormEvent) => {
+    e?.preventDefault();
     const name = typedName.trim();
     if (!name) return;
     
@@ -89,7 +113,6 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
 
     setIsSubmitting(true);
     
-    // Create records with temporally unique IDs to guarantee correct real-time sorting
     const records: AbsenceRecord[] = selectedStudents.map(s => ({
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       date: new Date().toISOString(),
@@ -101,10 +124,8 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
       messageToSupervisor: aiMessage
     }));
 
-    // Dispatch records to the online service via App.tsx callback
     onRecordAbsences(records);
     
-    // Quick success UI feedback
     setTimeout(() => {
       setIsSubmitting(false);
       setShowSuccess(true);
@@ -136,10 +157,10 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
                 />
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-xl text-sm font-semibold transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 rounded-xl text-xs font-bold transition-all"
                 >
                   <FileUp className="w-4 h-4" />
-                  رفع ملف إكسل
+                  إكسل
                 </button>
               </div>
             </div>
@@ -152,8 +173,16 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
                   value={typedName}
                   onChange={(e) => setTypedName(e.target.value)}
                   placeholder="اكتب اسم التلميذ..."
-                  className="w-full pr-12 pl-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
+                  className="w-full pr-12 pl-14 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700"
                 />
+                <button 
+                  type="button"
+                  onClick={startVoiceRecognition}
+                  className={`absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:bg-slate-200'}`}
+                  title="استخدم الصوت"
+                >
+                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
               </div>
               <button 
                 type="submit"
@@ -167,7 +196,7 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
               <div className="flex items-center justify-between px-2">
                 <h4 className="text-sm font-semibold text-slate-400 flex items-center gap-2 uppercase tracking-wider">
                   <ListChecks className="w-4 h-4" />
-                  قائمة التلاميذ المحددين ({selectedStudents.length})
+                  قائمة المحددين ({selectedStudents.length})
                 </h4>
                 {selectedStudents.length > 0 && (
                   <button 
@@ -235,7 +264,7 @@ const TeacherView: React.FC<TeacherViewProps> = ({ currentUser, onRecordAbsences
               
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-400 uppercase">ملاحظات التقرير</label>
+                  <label className="text-xs font-bold text-slate-400 uppercase">ملاحظات التقرير للمراقب</label>
                   <button 
                     onClick={handleAiGenerate}
                     disabled={isGenerating || selectedStudents.length === 0}

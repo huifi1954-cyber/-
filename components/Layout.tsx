@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { UserRole } from '../types';
+import { UserRole } from '../types.ts';
 import { LogOut, ClipboardCheck, Wifi, WifiOff, Share2, QrCode, X, Copy } from 'lucide-react';
 
 interface LayoutProps {
@@ -15,7 +14,6 @@ const Layout: React.FC<LayoutProps> = ({ children, role, userName, onLogout }) =
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
   const [showShareModal, setShowShareModal] = useState(false);
   
-  // Get school code from user data stored in App
   const userStr = localStorage.getItem('edu_current_user');
   const schoolCode = userStr ? JSON.parse(userStr).schoolCode : 'HOUAIFI';
 
@@ -50,7 +48,6 @@ const Layout: React.FC<LayoutProps> = ({ children, role, userName, onLogout }) =
 
   return (
     <div className="h-screen flex flex-col md:flex-row bg-slate-50 overflow-hidden" dir="rtl">
-      {/* Sidebar / Mobile Header */}
       <aside className="w-full md:w-64 bg-white border-l border-slate-200 flex flex-col shrink-0 z-30 shadow-sm md:shadow-none">
         <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-between md:block">
           <div>

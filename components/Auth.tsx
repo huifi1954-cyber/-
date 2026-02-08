@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole } from '../types.ts';
 import { LogIn, UserPlus, ShieldCheck, GraduationCap, Loader2, KeyRound } from 'lucide-react';
-import { OnlineService } from '../services/onlineService';
+import { OnlineService } from '../services/onlineService.ts';
 
 interface AuthProps {
   onLogin: (user: User) => void;

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { UserRole, AbsenceRecord, User } from './types';
-import Layout from './components/Layout';
-import TeacherView from './components/TeacherView';
-import SupervisorView from './components/SupervisorView';
-import Auth from './components/Auth';
-import { OnlineService } from './services/onlineService';
+import { UserRole, AbsenceRecord, User } from './types.ts';
+import Layout from './components/Layout.tsx';
+import TeacherView from './components/TeacherView.tsx';
+import SupervisorView from './components/SupervisorView.tsx';
+import Auth from './components/Auth.tsx';
+import { OnlineService } from './services/onlineService.ts';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -15,15 +14,18 @@ const App: React.FC = () => {
   useEffect(() => {
     const savedUser = localStorage.getItem('edu_current_user');
     if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
+      try {
+        const user = JSON.parse(savedUser);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Failed to parse saved user", e);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!currentUser?.schoolCode) return;
 
-    // Start Subscription for the specific school room
     OnlineService.subscribeToRecords(currentUser.schoolCode, (newChunks: any[]) => {
       newChunks.forEach(chunk => {
         if (chunk._deleted) {
@@ -33,7 +35,6 @@ const App: React.FC = () => {
         }
       });
 
-      // Fix: Explicitly type updatedList to AbsenceRecord[] to prevent 'unknown' type error when accessing .date in sort
       const updatedList: AbsenceRecord[] = Array.from(recordsMapRef.current.values());
       updatedList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setRecords([...updatedList]);
@@ -84,7 +85,7 @@ const App: React.FC = () => {
     >
       <div className="mb-4 flex items-center gap-2 p-3 bg-white rounded-2xl border border-blue-100 shadow-sm md:hidden">
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-        <span className="text-[10px] font-black text-slate-400 uppercase">المدرسة: </span>
+        <span className="text-[10px] font-black text-slate-400 uppercase">المؤسسة: </span>
         <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-lg">{currentUser.schoolCode}</span>
       </div>
 
